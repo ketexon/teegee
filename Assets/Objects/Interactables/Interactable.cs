@@ -9,9 +9,12 @@ public class Interactable : MonoBehaviour
 
     bool highlighted = false;
 
-    public virtual void Interact() {
-        Debug.Log("Interact");
+    void Reset()
+    {
+        toonRenderers = new(GetComponentsInChildren<Renderer>());
     }
+
+    public virtual void Interact() {}
 
     public void Highlight()
     {

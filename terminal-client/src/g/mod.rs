@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fs::DirEntry, io::Write, path::PathBuf, str::FromStr};
+use std::{collections::HashMap, fs::DirEntry, io::{stdin, stdout, Write}, path::PathBuf, str::FromStr};
 
 use bitmask::bitmask;
 use chrono::{DateTime, Local, Utc};
@@ -184,14 +184,14 @@ impl<'a> FSNode<'a> {
 	}
 }
 
-type Subprocess<'a> = &'a dyn Fn(&mut Game, Vec<String>) -> ();
+type Subprocess<'a> = &'a dyn Fn(&mut Game, Vec<String>) -> std::io::Result<()>;
 
 pub struct Game<'a> {
 	pub should_quit: bool,
 	pub cwd: Path,
 	pub drive: Option<String>,
 	pub root: Root<'a>,
-	pub subprocesses: HashMap<&'a str, Subprocess<'a>>,
+	pub subprocesses: HashMap<String, Subprocess<'a>>,
 }
 
 pub fn parse_command<T: IntoIterator<Item = char>>(command: T) -> Vec<String> {
@@ -228,11 +228,40 @@ pub fn parse_command<T: IntoIterator<Item = char>>(command: T) -> Vec<String> {
 	return args;
 }
 
-pub fn logout(game: &mut Game, args: Vec<String>){
-	game.should_quit = true;
+pub fn cmd(mut g: &mut Game, args: Vec<String>) -> std::io::Result<()> {
+	while !g.should_quit {
+        print!("{}> ", g.cwd.format(&g.drive));
+        stdout().flush()?;
+
+        let line = {
+            let mut buf = String::new();
+            stdin().read_line(&mut buf)?;
+            buf.trim().to_string()
+        };
+
+        let args = parse_command(line.chars());
+
+        if args.len() > 0 {
+            let proc_name = args[0].clone();
+
+            if let Some(subprocess) = g.subprocesses.get(&proc_name).cloned() {
+                let argv: Vec<String> = args[1..].into();
+                subprocess(&mut g, argv);
+            }
+            else {
+                println!("Unknown process \"{}\"", proc_name);
+            }
+        }
+    }
+	Ok(())
 }
 
-pub fn ls(game: &mut Game, args: Vec<String>){
+pub fn logout(game: &mut Game, args: Vec<String>) -> std::io::Result<()> {
+	game.should_quit = true;
+	Ok(())
+}
+
+pub fn ls(game: &mut Game, args: Vec<String>) -> std::io::Result<()>{
 	if let Some(entry) = game.root.get_node(&game.cwd) {
 		if let FSNodeContent::Dir(dir) = &entry.content {
 			let mut v: Vec<&FSNode> = dir.children.iter().collect();
@@ -291,12 +320,13 @@ pub fn ls(game: &mut Game, args: Vec<String>){
 			}
 		}
 	}
+	Ok(())
 }
 
-pub fn cd(game: &mut Game, args: Vec<String>) {
+pub fn cd(game: &mut Game, args: Vec<String>) -> std::io::Result<()> {
 	if args.len() != 1 {
 		println!("Expected 1 argument.");
-		return;
+		return Ok(());
 	}
 	let subdir = Path::parse(&game.cwd, args[0].clone());
 	if let Some(FSNode { content: FSNodeContent::Dir(_), .. }) = game.root.get_node(&subdir) {
@@ -305,9 +335,10 @@ pub fn cd(game: &mut Game, args: Vec<String>) {
 	else {
 		println!("No such directory \"{}\".", subdir.format(&game.drive));
 	}
+	Ok(())
 }
 
-pub fn cat(game: &mut Game, args: Vec<String>) {
+pub fn cat(game: &mut Game, args: Vec<String>) -> std::io::Result<()> {
 	if let Some(FSNode { content: FSNodeContent::Dir(d), .. }) = game.root.get_node(&game.cwd) {
 		let mut buf = String::new();
 		for file in args {
@@ -317,12 +348,13 @@ pub fn cat(game: &mut Game, args: Vec<String>) {
 			}
 			else {
 				println!("Cannot find file \"{file}\"");
-				return;
+				return Ok(());
 			}
 			print!("{buf}");
 			std::io::stdout().flush().expect("Could not flush stdio");
 		}
 	}
+	Ok(())
 }
 
 impl<'a> Default for Game<'a> {
@@ -338,11 +370,25 @@ impl<'a> Default for Game<'a> {
 				]))
 			]),
 			subprocesses: HashMap::from([
-				("logout", &logout as Subprocess<'a>),
-				("ls", &ls as Subprocess<'a>),
-				("cd", &cd as Subprocess<'a>),
-				("cat", &cat as Subprocess<'a>),
+				("cmd".to_string(), &cmd as Subprocess<'a>),
+				("logout".to_string(), &logout as Subprocess<'a>),
+				("ls".to_string(), &ls as Subprocess<'a>),
+				("cd".to_string(), &cd as Subprocess<'a>),
+				("cat".to_string(), &cat as Subprocess<'a>),
 			]),
 		}
+	}
+}
+
+fn test(g: &mut Game){
+
+}
+
+impl<'a> Game<'a> {
+	pub fn start_process<U: Into<Vec<String>>>(&mut self, name: &str, args: U) -> std::io::Result<()> {
+		self.subprocesses.get(name)
+			.cloned()
+			.ok_or(std::io::Error::other("No process found"))
+			.and_then(|f| f(self, args.into()))
 	}
 }

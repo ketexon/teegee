@@ -27,13 +27,13 @@ public class PlayerPoint : MonoBehaviour
     void OnEnable()
     {
         pointAction.action.performed += OnPoint;
-        clickAction.action.performed += OnClick;
+        clickAction.action.canceled += OnClick;
     }
 
     void OnDisable()
     {
         pointAction.action.performed -= OnPoint;
-        clickAction.action.performed -= OnClick;
+        clickAction.action.canceled -= OnClick;
     }
 
     void OnPoint(InputAction.CallbackContext ctx)
