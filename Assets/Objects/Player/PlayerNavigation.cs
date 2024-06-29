@@ -31,7 +31,7 @@ public class PlayerNavigation : MonoBehaviour
         agent.destination = pos;
 
         activeWaypointIndicator.SetActive(true);
-        activeWaypointIndicator.transform.position = pos;
+        activeWaypointIndicator.transform.position = agent.destination;
 
         if (!atDestination)
         {

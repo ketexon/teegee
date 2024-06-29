@@ -1,9 +1,12 @@
+#[macro_use]
+pub extern crate num_derive;
+
 use crossterm::{event::{self, KeyCode, KeyEventKind}, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}, ExecutableCommand};
-use g::{parse_command};
 
 use ipc::msg::{Message, UnlockDoorMessage};
-use ratatui::{backend::CrosstermBackend, layout::{Constraint, Flex, Layout, Rect}, style::{Color, Stylize}, widgets::{Block, BorderType, Borders, Paragraph, StatefulWidget, Widget}, Terminal};
-use std::{fmt::Display, io::{stdin, stdout, Result}, process::ExitCode};
+use num_traits::{FromPrimitive, ToPrimitive};
+use ratatui::{backend::CrosstermBackend, layout::{Constraint, Flex, Layout, Rect}, style::{Color, Stylize}, widgets::{Block, BorderType, Borders, Paragraph}, Terminal};
+use std::{fmt::{Debug, Display}, io::{stdout, Result}, process::ExitCode};
 
 mod g;
 mod ipc;
@@ -39,7 +42,7 @@ fn centered_rect(area: Rect, width: u16, height: u16) -> Rect {
     area
 }
 
-fn report_delta<T: Display>(mut last: &mut std::time::Instant, label: T){
+fn report_delta<T: Display>(last: &mut std::time::Instant, label: T){
     std::println!("{}: {:.2?}", label, last.elapsed());
     *last = std::time::Instant::now();
 }
@@ -48,7 +51,6 @@ fn terminal1(connection: &mut ipc::Connection) -> Result<ExitCode> {
     stdout().execute(EnterAlternateScreen)?;
     enable_raw_mode()?;
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
-    // terminal.clear()?;
 
     const N_NUMS: usize = 4;
 
@@ -138,10 +140,8 @@ fn main() -> Result<ExitCode> {
         }
     };
 
-
-    match message.index {
-        0 => terminal0(),
-        1 => terminal1(&mut connection),
-        _ => panic!()
+    match message.terminal_type {
+        ipc::TerminalType::OS => terminal0(),
+        ipc::TerminalType::Pinpad => terminal1(&mut connection),
     }
 }

@@ -3,10 +3,12 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using UnityEngine.Serialization;
 
 public enum MessageType : uint
 {
     Initialize = 0,
+    UnlockDoor = 1,
 }
 
 [StructLayout(LayoutKind.Sequential)]
@@ -21,12 +23,32 @@ public interface IMessage
     public MessageType Type { get; }
 }
 
+[Serializable]
+public enum TerminalType : uint
+{
+    OS = 0,
+    Pinpad = 1,
+    Error = 37,
+}
+
+[Serializable]
 [StructLayout(LayoutKind.Sequential)]
 public struct InitializeMessage : IMessage
 {
     public MessageType Type => MessageType.Initialize;
 
-    public int Index;
+    [FormerlySerializedAs("Index")]
+    public TerminalType TerminalType;
+}
+
+[Serializable]
+[StructLayout(LayoutKind.Sequential)]
+public struct UnlockDoorMessage : IMessage
+{
+    public MessageType Type => MessageType.UnlockDoor;
+
+    [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
+    public byte[] Code;
 }
 
 public class TerminalServer : IDisposable, IAsyncDisposable
@@ -76,6 +98,31 @@ public class TerminalServer : IDisposable, IAsyncDisposable
         }
     }
 
+    T? BytesToData<T>(byte[] data)
+    where T : struct
+    {
+        int size = Marshal.SizeOf<T>();
+        if (size != data.Length)
+        {
+            return null;
+        }
+
+        IntPtr buffer = IntPtr.Zero;
+        try
+        {
+            buffer = Marshal.AllocHGlobal(size);
+            Marshal.Copy(data, 0, buffer, size);
+            return Marshal.PtrToStructure<T>(buffer);
+        }
+        finally
+        {
+            if (buffer != IntPtr.Zero)
+            {
+                Marshal.FreeHGlobal(buffer);
+            }
+        }
+    }
+
     public void Write<T>(T data)
         where T : struct
     {
@@ -110,6 +157,32 @@ public class TerminalServer : IDisposable, IAsyncDisposable
         Write(message);
     }
 
+    public Task WriteMessageAsync<T>(T message)
+        where T : struct, IMessage
+    {
+        Write(new MessageHeader
+        {
+            Type = message.Type,
+            Length = (uint)Marshal.SizeOf<T>(),
+        });
+
+        return WriteAsync(message);
+    }
+
+    public T Read<T>()
+        where T : struct
+    {
+        var data = ReadExactly(Marshal.SizeOf<T>());
+        return BytesToData<T>(data).Value;
+    }
+
+    public async Task<T> ReadAsync<T>()
+        where T : struct
+    {
+        var data = await ReadExactlyAsync(Marshal.SizeOf<T>());
+        return BytesToData<T>(data).Value;
+    }
+
     public byte[] ReadExactly(int n)
     {
         if (n == 0) return new byte[0];
@@ -133,6 +206,29 @@ public class TerminalServer : IDisposable, IAsyncDisposable
             read += await stream.ReadAsync(buffer, read, ToRead());
         }
         return buffer;
+    }
+
+    public async Task<IMessage> ReadMessageAsync()
+    {
+        var messageHeader = await ReadAsync<MessageHeader>();
+
+        async Task<T?> Internal<T>()
+            where T : struct
+        {
+            var len = messageHeader.Length;
+            if (len != Marshal.SizeOf<T>()) return null;
+            return await ReadAsync<T>();
+        }
+        
+        switch (messageHeader.Type)
+        {
+            case MessageType.Initialize:
+                return await Internal<InitializeMessage>();
+            case MessageType.UnlockDoor:
+                return await Internal<UnlockDoorMessage>();
+            default:
+                throw new NotImplementedException($"Unknown message sent: {messageHeader.Type}");
+        }
     }
 
     #region Accept

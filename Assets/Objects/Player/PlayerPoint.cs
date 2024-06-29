@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.AI;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 public class PlayerPoint : MonoBehaviour
@@ -47,23 +48,21 @@ public class PlayerPoint : MonoBehaviour
 
         Vector3? newNavMeshDestination = null;
         Interactable newInteractable = null;
+        RaycastHit hitInfo = new();
 
-        if (Physics.Raycast(ray, out var hitInfo)) {
+        if (!EventSystem.current.IsPointerOverGameObject() && Physics.Raycast(ray, out hitInfo)) {
+            var goLayer = hitInfo.collider.gameObject.layer;
+            if (interactableLayer.Contains(goLayer))
+            {
+                newInteractable = hitInfo.collider.gameObject.GetComponent<Interactable>();
+            }
             // the hit is on a walkable part of the navmesh
-            if(NavMesh.SamplePosition(hitInfo.point, out var _, .1f, walkableMask))
+            else if (NavMesh.SamplePosition(hitInfo.point, out var _, .1f, walkableMask))
             {
                 newNavMeshDestination = hitInfo.point;
             
                 inactiveWaypointIndicator.SetActive(true);
                 inactiveWaypointIndicator.transform.position = newNavMeshDestination.Value;
-            }
-            else
-            {
-                var goLayer = hitInfo.collider.gameObject.layer;
-                if(interactableLayer.Contains(goLayer))
-                {
-                    newInteractable = hitInfo.collider.gameObject.GetComponent<Interactable>();
-                }
             }
         }
 
@@ -102,7 +101,8 @@ public class PlayerPoint : MonoBehaviour
                 interactableCollider.transform.position,
                 interactableCollider.transform.rotation
             );
-            if (Vector3.Distance(closest, transform.position) > interactDistance) {
+
+            if (Vector3.Distance(closest.ProjectXZ(), transform.position.ProjectXZ()) > interactDistance) {
                 Player.Instance.Navigation.NavigateTo(interactable.transform.position);
             }
             else

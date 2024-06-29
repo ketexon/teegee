@@ -5,7 +5,7 @@ pub struct MessageHeader {
 }
 
 #[repr(u32)]
-#[derive(Debug, Clone, Copy)]
+#[derive(ToPrimitive, FromPrimitive, Debug, Clone, Copy)]
 pub enum MessageType {
 	Initialize = 0,
 	UnlockDoor = 1,
@@ -26,9 +26,16 @@ impl Message {
 	}
 }
 
+#[derive(ToPrimitive, FromPrimitive, Debug, Clone, Copy)]
+#[repr(u32)]
+pub enum TerminalType {
+    OS = 0,
+    Pinpad = 1,
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct InitializeMessage {
-	pub index: i32,
+	pub terminal_type: TerminalType,
 }
 
 #[derive(Debug, Clone, Copy)]

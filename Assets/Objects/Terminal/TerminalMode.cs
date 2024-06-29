@@ -24,6 +24,23 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
     Process process = null;
     TerminalServer server = new();
 
+    IMessage terminateMessage = null;
+    public System.Action<IMessage> TerminateEvent;
+
+    void Update()
+    {
+        // NOTE: This is done this way to 
+        // make sure the terminate event is sent during
+        // a unity lifecycle message.
+        // Otherwise, it might be called between
+        // messages, and this causes undefined behavior.
+        if(terminateMessage != null)
+        {
+            TerminateEvent?.Invoke(terminateMessage);
+            terminateMessage = null;
+        }
+    }
+
     public void StartTerminal(InitializeMessage initialize)
     {
         server.Start();
@@ -49,52 +66,24 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
             {
                 Debug.Log("Connected");
                 server.WriteMessage(initialize);
-                await OnServerConnected();
             }
         });
     }
 
-    async Task OnServerConnected()
-    {
-        var t = server.ReadExactlyAsync(4);
-        if(!await t.WaitAsync(1000))
-        {
-            Debug.LogError("No data from client");
-            return;
-        }
-        else if(t.Result.Length != 4)
-        {
-            Debug.LogError("Incomplete data from client");
-            return;
-        }
-        var i = BitConverter.ToInt32(t.Result);
-        Debug.Log(i);
-    }
-
-
-    void Update()
-    {
-        //if (process is not null && !connected)
-        //{
-        //    if (server.Accept())
-        //    {
-        //        Debug.Log("Connected");
-        //        connected = true;
-        //    }
-        //}
-        //if (pipeServer != null && pipeServer.CanRead && pipeServer.IsConnected)
-        //{
-        //    int b;
-        //    while((b = pipeServer.ReadByte()) >= 0)
-        //    {
-        //        Debug.Log(b);
-        //        pipeBuffer.Add((byte) b);
-        //    }
-        //}
-    }
-
     private void OnProcessExited(object sender, System.EventArgs e)
     {
+        Debug.Log("Process exited.");
+
+        var task = server.ReadMessageAsync();
+        if(!task.Wait(1000))
+        {
+            Debug.Log("Shutdown message not sent");
+        }
+        else
+        {
+            terminateMessage = task.Result;
+        }
+
         Debug.Log($"Process exited: {process.ExitCode}");
         ShowWindow();
     

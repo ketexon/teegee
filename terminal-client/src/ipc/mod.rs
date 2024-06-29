@@ -2,7 +2,7 @@ pub mod msg;
 
 use std::{io::{Read, Write}, net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream}, time::Duration};
 use msg::{MessageType, UnlockDoorMessage};
-pub use msg::{InitializeMessage, Message, MessageHeader};
+pub use msg::{*, InitializeMessage, Message, MessageHeader};
 
 
 const SERVER_TIMEOUT: Duration = Duration::from_secs(3);
@@ -100,7 +100,6 @@ impl Drop for Connection {
 
 #[derive(Debug)]
 pub enum ParseError {
-	InvalidFormat,
 	InvalidLength,
 	UnknownMessage,
 	IoError(std::io::Error),

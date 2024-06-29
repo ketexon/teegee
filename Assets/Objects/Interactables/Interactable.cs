@@ -6,12 +6,16 @@ using UnityEngine;
 public class Interactable : MonoBehaviour
 {
     [SerializeField] List<Renderer> toonRenderers = new();
+    [SerializeField, Layer] int highlightedLayer;
+
+    List<int> oldLayers = new();
 
     bool highlighted = false;
 
     void Reset()
     {
         toonRenderers = new(GetComponentsInChildren<Renderer>());
+        highlightedLayer = LayerMask.NameToLayer("Highlighted");
     }
 
     public virtual void Interact() {}
@@ -21,20 +25,23 @@ public class Interactable : MonoBehaviour
         if (highlighted) return;
         highlighted = true;
 
+        oldLayers.Clear();
         foreach (var r in toonRenderers)
         {
-            r.material.SetFloat("_EnableOutline", 1.0f);
-            r.material.SetShaderPassEnabled("Outline", true);
+            oldLayers.Add(r.gameObject.layer);
+            r.gameObject.layer = highlightedLayer;
         }
     }
     public void Unhighlight() { 
         if(!highlighted) return;
         highlighted = false;
 
-        foreach(var r in toonRenderers)
+        for(int i = 0; i < toonRenderers.Count; i++)
         {
-            r.material.SetFloat("_EnableOutline", 0.0f);
-            r.material.SetShaderPassEnabled("Outline", false);
+            var r = toonRenderers[i];
+            var layer = oldLayers[i];
+
+            r.gameObject.layer = layer;
         }
     }
 }
