@@ -2,6 +2,9 @@ use std::fmt::Debug;
 
 use super::Game;
 
+pub mod fs;
+pub mod sys;
+
 #[derive(Debug, Clone, Default, PartialEq, PartialOrd, Eq, Ord)]
 pub struct SubprocessInfo {
 	pub name: Option<String>,
@@ -14,7 +17,7 @@ pub trait SubprocessFn {
 		Default::default()
 	}
 
-	fn run(&self, g: &mut Game, args: Vec<String>) -> std::io::Result<()>;
+	fn run(&self, g: &Game, args: Vec<String>) -> std::io::Result<()>;
 }
 
 pub type Subprocess = &'static dyn SubprocessFn;
@@ -28,6 +31,3 @@ impl Debug for dyn SubprocessFn {
 		)
 	}
 }
-
-pub mod fs;
-pub mod sys;

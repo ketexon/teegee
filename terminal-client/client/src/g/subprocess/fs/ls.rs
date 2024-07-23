@@ -1,20 +1,24 @@
-use std::io::Write;
-
-use crate::g::{fs::{self, Path}, Game};
-use super::{Subprocess, SubprocessFn, SubprocessInfo};
-
-pub const DEFAULT: &[(&str, Subprocess)] = &[
-	("ls", LS),
-	("cd", CD),
-	("cat", CAT),
-];
+use crate::g::{fs::Path, subprocess::{Subprocess, SubprocessFn}, Game};
 
 pub const LS: Subprocess = {
 	struct Ls;
 	impl SubprocessFn for Ls {
-		fn run(&self, g: &mut Game, args: Vec<String>) -> std::io::Result<()> {
-			if let Some(entry) = g.current_computer().root.get_node(&g.current_computer().cwd) {
+		fn run(&self, g: &Game, args: Vec<String>) -> std::io::Result<()> {
+			if args.len() > 1 {
+				let _ = g.start_exe_from_path("help", vec!["ls".into()]);
+				return Ok(());
+			}
+
+			let cwd = g.current_computer().cwd.borrow().clone();
+			let dir = if args.len() == 1 {
+				Path::parse(&cwd, args.get(0).unwrap())
+			} else {
+				cwd
+			};
+
+			if let Some(entry) = g.current_computer().root.get_node(&dir) {
 				if let Some(dir) = &entry.as_dir() {
+					use crate::g::fs;
 					use fs::NodeContent;
 
 					let mut v: Vec<&fs::Node> = dir.children.iter().collect();
@@ -76,66 +80,12 @@ pub const LS: Subprocess = {
 					}
 				}
 			}
+			else {
+				println!("\"{dir}\" is not a directory");
+			}
 			Ok(())
 		}
 	}
 
 	&Ls
-};
-
-pub const CD: Subprocess = {
-	struct Cd;
-	impl SubprocessFn for Cd {
-		fn run(&self, g: &mut Game, args: Vec<String>) -> std::io::Result<()> {
-			if args.len() != 1 {
-				println!("Expected 1 argument.");
-				return Ok(());
-			}
-			let subdir = fs::Path::parse(&g.current_computer().cwd, &args[0]);
-			if let Some(node) = g.current_computer().root.get_node(&subdir) {
-				if node.is_dir() {
-					g.current_computer_mut().cwd = subdir;
-				}
-				else{
-					println!("Path is not a directory \"{}\".", subdir);
-				}
-			}
-			else {
-				println!("No such directory \"{}\".", subdir);
-			}
-			Ok(())
-		}
-	}
-	&Cd
-};
-
-pub const CAT: Subprocess = {
-	struct Cat;
-	impl SubprocessFn for Cat {
-		fn run(&self, g: &mut Game, args: Vec<String>) -> std::io::Result<()> {
-			let cwd = g.current_computer().cwd.clone();
-
-			let mut buf = String::new();
-			for file in args {
-				if let Some(node) = g.current_computer().root.get_node(&Path::parse(&cwd, &file)) {
-					if let Some(f) = node.as_file() {
-						buf += &f.content;
-						buf.push('\n');
-					}
-					else {
-						println!("Path \"{file}\" is not a file.");
-					}
-				}
-				else {
-					println!("File \"{file}\" does not exist.");
-					return Ok(());
-				}
-				std::io::stdout().flush().expect("Could not flush stdio");
-			}
-			print!("{buf}");
-
-			Ok(())
-		}
-	}
-	&Cat
 };

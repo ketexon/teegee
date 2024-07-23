@@ -1,27 +1,26 @@
-use std::collections::{HashMap, VecDeque};
-
 pub mod computer;
 pub mod fs;
 pub mod subprocess;
 
+use std::{cell::{Cell, RefCell}, collections::{HashMap, VecDeque}, rc::Rc};
+
 pub use computer::Computer;
 use computer::{ComputerBuilder, User};
 use fs::{File, Node, Path};
-use subprocess::SubprocessFn;
 
-use crate::{date, ipc, path, util::wait_for_input};
+use crate::{date, ipc, path};
 
-pub struct Game<'a> {
-	pub connection: &'a mut Box<dyn ipc::Connection>,
-	pub computers: Vec<Computer>,
-	pub current_computer_index: usize,
+pub struct Game {
+	pub connection: Box<RefCell<dyn ipc::Connection>>,
+	pub computers: Vec<Rc<Computer>>,
 
+	current_computer_index: Cell<usize>,
 	computer_address_map: HashMap<String, usize>,
-	process_queue: VecDeque<(String, Vec<String>)>,
+	process_queue: RefCell<VecDeque<(String, Vec<String>)>>,
 }
 
-impl<'a> Game<'a> {
-	pub fn new(connection: &'a mut Box<dyn ipc::Connection>) -> Self {
+impl Game {
+	pub fn new(connection: Box<RefCell<dyn ipc::Connection>>) -> Self {
 		let default_exes =
 			std::iter::empty()
 			.chain(subprocess::sys::DEFAULT)
@@ -30,21 +29,23 @@ impl<'a> Game<'a> {
 
 		let computers = vec![
 			ComputerBuilder::new()
-				.name("Plasma XQ9")
+				.name("Plasma_XQ9")
 				.users([
 					User::new("root", "123456"),
 				])
-				.current_user("root")
-				.address("192.168.0.1")
+				.address("64.26.62.54")
 				.with_path("bin".to_string())
 				.add_dir(&path![], "bin", date!["12 Jan 2024 12:30"])
 				.add_file(&path![], "hello1", date!["12 Jan 2024 12:30"], File::new("there"))
 				.add_exes_same_date(&path!["bin"], date!["12 Jan 2024 12:30"], default_exes.clone())
 				.build(),
 			ComputerBuilder::new()
-				.name("Computer 1")
-				.address("192.168.0.1")
+				.name("Computer1")
+				.address("214.7.222.240")
 				.with_path("bin".to_string())
+				.users([
+					User::new("root", "123456"),
+				])
 				.add_dir(&path![], "bin", date!["12 Jan 2024 12:30"])
 				.add_file(&path![], "hello2", date!["12 Jan 2024 12:30"], File::new("there"))
 				.add_exes_same_date(&path!["bin"], date!["12 Jan 2024 12:30"], default_exes.clone())
@@ -58,54 +59,49 @@ impl<'a> Game<'a> {
 
 		Self {
 			connection,
-			computers,
-			current_computer_index: 0,
+			computers: computers.into_iter().map(Rc::new).collect(),
+			current_computer_index: Cell::new(0),
 			computer_address_map,
-			process_queue: Default::default(),
+			process_queue: RefCell::new(Default::default()),
 		}
 	}
 
-	pub fn current_computer(&self) -> &Computer {
-		&self.computers[self.current_computer_index]
+	pub fn current_computer_index(&self) -> usize {
+		self.current_computer_index.get()
 	}
 
-	pub fn current_computer_mut(&mut self) -> &mut Computer {
-		&mut self.computers[self.current_computer_index]
+	pub fn current_computer(&self) -> Rc<Computer> {
+		self.computers[self.current_computer_index()].clone()
 	}
 
-	pub fn start_exe_from_path<U: Into<Vec<String>>>(&mut self, name: &str, args: U) -> Result<std::io::Result<()>, fs::FsError> {
+	pub fn start_exe_from_path<U: Into<Vec<String>>>(&self, name: &str, args: U) -> Result<std::io::Result<()>, fs::FsError> {
 		self.current_computer().which_node(&name.to_string())
 			.ok_or(fs::FsError::PathIsNotExecutable)
 			.and_then(|node| self.start_exe(node, args))
 	}
 
-	pub fn start_exe<U: Into<Vec<String>>>(&mut self, node: Node, args: U) -> Result<std::io::Result<()>, fs::FsError> {
+	pub fn start_exe<U: Into<Vec<String>>>(&self, node: Node, args: U) -> Result<std::io::Result<()>, fs::FsError> {
 		node.as_exe()
 			.ok_or(fs::FsError::PathIsNotExecutable)
-			.map(|node| node.run(self, args.into()))
+			.map(|node| node.run(&self, args.into()))
 	}
 
-	pub fn queue_process<U: Into<Vec<String>>>(&mut self, name: &str, args: U) {
-		self.process_queue.push_back((name.to_string(), args.into()));
+	pub fn queue_process<U: Into<Vec<String>>>(&self, name: &str, args: U) {
+		self.process_queue.borrow_mut().push_back((name.to_string(), args.into()));
 	}
 
-	pub fn get_queued_process(&mut self) -> Option<(String, Vec<String>)> {
-		self.process_queue.pop_front()
-	}
-
-	#[allow(dead_code)]
-	pub fn find_computer_by_address(&self, addr: &String) -> Option<&Computer> {
-		self.computer_address_map.get(addr).map(|i| &self.computers[*i])
+	pub fn get_queued_process(&self) -> Option<(String, Vec<String>)> {
+		self.process_queue.borrow_mut().pop_front()
 	}
 
 	#[allow(dead_code)]
-	pub fn find_computer_by_address_mut(&mut self, addr: &String) -> Option<&mut Computer> {
-		self.computer_address_map.get(addr).map(|i| &mut self.computers[*i])
+	pub fn find_computer_by_address(&self, addr: &String) -> Option<Rc<Computer>> {
+		self.computer_address_map.get(addr).map(|i| self.computers[*i].clone())
 	}
 
-	pub fn change_computers_by_address(&mut self, addr: &String) -> bool {
+	pub fn change_computers_by_address(&self, addr: &String) -> bool {
 		if let Some(index) = self.computer_address_map.get(addr) {
-			self.current_computer_index = *index;
+			self.current_computer_index.set(*index);
 			return true;
 		}
 		false

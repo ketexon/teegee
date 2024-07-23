@@ -1,22 +1,21 @@
 #[macro_use]
 pub extern crate num_derive;
 
-use bevy_reflect::{serde::{ReflectDeserializer, TypedReflectDeserializer}, FromReflect, Reflect, TypeInfo, TypePath, TypeRegistry, Typed};
+use bevy_reflect::Reflect;
 use crossterm::{event::{self, DisableMouseCapture, EnableMouseCapture, KeyCode, KeyEventKind, MouseButton, MouseEventKind}, terminal::{disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen}, ExecutableCommand};
 
 use g::fs::FsError;
 use ipc::{msg::{Message, UnlockDoorMessage}, Connection, PlaySfxMessage};
 use ratatui::{backend::CrosstermBackend, layout::{Constraint, Flex, Layout, Position, Rect}, style::{Color, Stylize}, widgets::{Block, BorderType, Borders, Paragraph}, Terminal};
-use util::wait_for_input;
-use windows::Win32::System::Console::{SetConsoleCtrlHandler, CTRL_CLOSE_EVENT};
-use std::{any::TypeId, borrow::Borrow, io::{stdout, Read, Result}, process::ExitCode, rc::Rc};
-use serde::de::DeserializeSeed;
+use std::{cell::RefCell, io::{stdout, Result}, process::ExitCode, rc::Rc};
 
 mod g;
 mod ipc;
 mod log;
-mod util;
+pub mod rcmut;
+pub mod rl;
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 enum GExitCode {
     Success = 0,
@@ -36,8 +35,8 @@ impl From<GExitCode> for ExitCode {
     }
 }
 
-fn terminal0(connection: &mut Box<dyn ipc::Connection>) -> Result<GExitCode> {
-    let mut g = g::Game::new(connection);
+fn terminal0(connection: Box<RefCell<dyn ipc::Connection>>) -> Result<GExitCode> {
+    let g = g::Game::new(connection);
 
     g.queue_process("cmd", []);
     while let Some((name, args)) = g.get_queued_process() {
@@ -62,7 +61,7 @@ fn centered_rect(area: Rect, width: u16, height: u16) -> Rect {
     area
 }
 
-fn terminal1(connection: &mut Box<dyn ipc::Connection>) -> Result<GExitCode> {
+fn terminal1(connection: Box<RefCell<dyn ipc::Connection>>) -> Result<GExitCode> {
     stdout().execute(EnterAlternateScreen)?;
     stdout().execute(EnableMouseCapture)?;
     enable_raw_mode()?;
@@ -130,7 +129,7 @@ fn terminal1(connection: &mut Box<dyn ipc::Connection>) -> Result<GExitCode> {
                         }
 
                         if play_sfx {
-                            connection.write_message(Message::PlaySfx(PlaySfxMessage {
+                            connection.borrow_mut().write_message(Message::PlaySfx(PlaySfxMessage {
                                 id: 0,
                             }))?;
                         }
@@ -169,7 +168,7 @@ fn terminal1(connection: &mut Box<dyn ipc::Connection>) -> Result<GExitCode> {
     stdout().execute(LeaveAlternateScreen)?;
     disable_raw_mode()?;
 
-    connection.write_message(Message::UnlockDoor(UnlockDoorMessage {
+    connection.borrow_mut().write_message(Message::UnlockDoor(UnlockDoorMessage {
         code: nums
     })).and(Ok(GExitCode::Success))
 }
@@ -187,9 +186,9 @@ fn main() -> Result<ExitCode> {
     setup();
 
     fn main_impl() -> Result<GExitCode> {
-        let mut connection: Box<dyn Connection> = {
+        let connection: Box<RefCell<dyn Connection>> = {
             if let Some(c) = ipc::StreamConnection::tcp() {
-                Box::new(c)
+                Box::new(RefCell::new(c))
             }
             else {
                 loop {
@@ -209,12 +208,12 @@ fn main() -> Result<ExitCode> {
                         break;
                     }
                 }
-                Box::new(ipc::StreamConnection::io())
+                Box::new(RefCell::new(ipc::StreamConnection::io()))
             }
         };
 
         let message = {
-            if let Ok(ipc::Message::Initialize(init)) = connection.read_message_expecting(ipc::msg::MessageType::Initialize) {
+            if let Ok(ipc::Message::Initialize(init)) = connection.borrow_mut().read_message_expecting(ipc::msg::MessageType::Initialize) {
                 init
             }
             else {
@@ -223,8 +222,8 @@ fn main() -> Result<ExitCode> {
         };
 
         match message.terminal_type {
-            ipc::TerminalType::OS => terminal0(&mut connection),
-            ipc::TerminalType::Pinpad => terminal1(&mut connection),
+            ipc::TerminalType::OS => terminal0(connection),
+            ipc::TerminalType::Pinpad => terminal1(connection),
         }
     }
 

@@ -1,10 +1,10 @@
+use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use bevy_reflect::Reflect;
 
 use crate::path;
-use crate::util::wait_for_input;
 
-use super::fs::{Dir, Executable, File, Node, NodeData, NodeDateTime, Path, Root};
+use super::fs::{Dir, File, Node, NodeContent, NodeDateTime, Path, Root};
 use super::subprocess::SubprocessFn;
 
 #[repr(u32)]
@@ -16,6 +16,7 @@ pub enum ComputerId {
 
 type ComputerAddress = String;
 
+#[derive(Clone)]
 pub struct User {
 	pub name: String,
 	pub password: String,
@@ -30,24 +31,48 @@ impl User {
 	}
 }
 
+#[derive(Clone)]
 pub struct Computer {
-	pub should_quit: bool,
+	pub should_quit: Cell<bool>,
 
 	pub name: String,
 	pub users: Vec<User>,
-	pub current_user: String,
+	pub current_user_index: Cell<usize>,
 	pub id: ComputerId,
 	pub address: ComputerAddress,
 
-	pub cwd: Path,
-	pub drive: Option<String>,
+	pub cwd: RefCell<Path>,
 	pub root: Root,
-	pub env: HashMap<String, String>,
+	pub env: RefCell<HashMap<String, String>>,
 }
 
+impl Default for Computer {
+	fn default() -> Self {
+		Self {
+			should_quit: Cell::new(false),
+
+			name: Default::default(),
+			users: Default::default(),
+			current_user_index: Cell::new(0),
+			id: ComputerId::First,
+			address: Default::default(),
+
+			cwd: Default::default(),
+			root: Root::new([]),
+
+			env: RefCell::new(
+				HashMap::from([
+					("PS1".to_string(), "\\u@\\H \\w$ ".to_string()),
+				])
+			),
+		}
+	}
+}
+
+#[allow(dead_code)]
 impl Computer {
 	pub fn path(&self) -> String {
-		self.env.get(&"path".to_string()).cloned().unwrap_or_default()
+		self.env.borrow().get(&"path".to_string()).cloned().unwrap_or_default()
 	}
 
 	pub fn parsed_path(&self) -> Vec<String> {
@@ -59,7 +84,7 @@ impl Computer {
 		path
 			.iter()
 			.find_map(|entry| {
-				let exe_path = Path::parse(&Path::default(), entry).join(&path![exe.clone()]);
+				let exe_path = Path::parse(&Path::default(), entry).join(&path![exe]);
 				self.root.get_node(&exe_path)
 					.and_then(|node| if node.is_exe() { Some(node) } else { None })
 					.map(|node| (exe_path, node))
@@ -77,32 +102,35 @@ impl Computer {
 	pub fn find_user(&self, name: &str) -> Option<&User> {
 		return self.users.iter().find(|user| user.name == name)
 	}
-}
 
-impl Default for Computer {
-	fn default() -> Self {
-		Self {
-			should_quit: false,
+	pub fn current_user(&self) -> &User {
+		self.users.get(self.current_user_index.get()).expect("User index out of range")
+	}
 
-			name: Default::default(),
-			users: Default::default(),
-			current_user: Default::default(),
-			id: ComputerId::First,
-			address: Default::default(),
-
-			cwd: Default::default(),
-			drive: Some("C".to_string()),
-			root: Root::new([]),
-
-			env: HashMap::from([
-				("PS1".to_string(), "\\u@\\H \\w$ ".to_string()),
-			]),
-		}
+	pub fn exes(&self) -> Vec<Node> {
+		self.parsed_path()
+			.iter()
+			.filter_map(|entry|
+				self.root
+					.get_dir(&Path::parse(&path![], entry))
+			)
+			.flat_map(|dir|
+				dir.children
+			)
+			.filter_map(|node| {
+				let data = node.borrow();
+				match data.content {
+					NodeContent::Executable(_) => Some(node.clone()),
+					_ => None,
+				}
+			})
+			.collect()
 	}
 }
 
 pub struct ComputerBuilder(Computer);
 
+#[allow(dead_code)]
 impl ComputerBuilder {
 	pub fn new() -> Self { Self(Default::default()) }
 
@@ -117,19 +145,24 @@ impl ComputerBuilder {
 	}
 
 	pub fn add_user<T: Into<User>>(mut self, user: T) -> Self {
-		let user = user.into();
-		let user_name = user.name.clone();
+		let user: User = user.into();
 		self.0.users.push(user);
-		if self.0.users.len() == 0 {
-			self.current_user(user_name)
+		let len = self.0.users.len();
+		if len == 0 {
+			self.current_user_index(len - 1)
 		}
 		else {
 			self
 		}
 	}
 
-	pub fn current_user<T: ToString>(mut self, current_user: T) -> Self {
-		self.0.current_user = current_user.to_string();
+	pub fn current_user_index(self, current_user: usize) -> Self {
+		self.0.current_user_index.set(current_user);
+		self
+	}
+
+	pub fn current_user_name(self, current_user_name: String) -> Self {
+		let _ = self.0.users.iter().find(|u| u.name == current_user_name);
 		self
 	}
 
@@ -143,13 +176,8 @@ impl ComputerBuilder {
 		self
 	}
 
-	pub fn cwd(mut self, cwd: Path) -> Self {
-		self.0.cwd = cwd;
-		self
-	}
-
-	pub fn drive(mut self, drive: String) -> Self {
-		self.0.drive = Some(drive);
+	pub fn cwd(self, cwd: Path) -> Self {
+		self.0.cwd.replace(cwd);
 		self
 	}
 
@@ -188,8 +216,8 @@ impl ComputerBuilder {
 		)
 	}
 
-	pub fn with_path(mut self, path: String) -> Self {
-		self.0.env.entry("path".to_string())
+	pub fn with_path(self, path: String) -> Self {
+		self.0.env.borrow_mut().entry("path".to_string())
 			.and_modify(|p| {
 				p.push(';');
 				p.push_str(path.as_str());
@@ -198,8 +226,8 @@ impl ComputerBuilder {
 		self
 	}
 
-	pub fn ps1(mut self, ps1: String) -> Self {
-		self.0.env.insert("PS1".to_string(), ps1);
+	pub fn ps1(self, ps1: String) -> Self {
+		self.0.env.borrow_mut().insert("PS1".to_string(), ps1);
 		self
 	}
 

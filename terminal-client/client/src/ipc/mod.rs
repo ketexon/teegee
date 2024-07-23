@@ -1,9 +1,6 @@
 pub mod msg;
 
-use std::{any::TypeId, io::{Read, Write}, net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream}, time::Duration};
-use bevy_reflect::{serde::TypedReflectDeserializer, FromReflect, TypeRegistry};
-use dateparser::datetime::Parse;
-use serde::de::DeserializeSeed;
+use std::{io::{Read, Write}, net::{IpAddr, Ipv4Addr, SocketAddr, TcpStream}, time::Duration};
 use msg::{MessageType, UnlockDoorMessage};
 pub use msg::{*, InitializeMessage, Message, MessageHeader};
 
@@ -20,8 +17,6 @@ pub enum ParseError {
 	InvalidLength,
 	UnknownMessage,
 	Io(std::io::Error),
-	// Ron(ParseRonMessageError),
-	Cancelled,
 }
 
 trait ReadWrite: Read + Write {}

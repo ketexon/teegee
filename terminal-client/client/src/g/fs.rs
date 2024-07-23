@@ -1,8 +1,6 @@
 use bitmask::bitmask;
 
-use std::borrow::Borrow;
 use std::fmt::Debug;
-use std::path::Display;
 use std::rc::{Rc, Weak};
 use std::cell::{Ref, RefCell, RefMut};
 use super::subprocess::SubprocessFn;
@@ -45,7 +43,7 @@ impl Path {
 		Self(path.into())
 	}
 
-	pub fn parse(cwd: &Path, relative: &String) -> Self {
+	pub fn parse(cwd: &Path, relative: &str) -> Self {
 		let mut new_path = if relative.starts_with('/') {
 			Vec::new()
 		} else{
@@ -74,6 +72,18 @@ impl Path {
 			}
 		}
 		Self(new_path)
+	}
+
+	pub fn parent(&self) -> Self {
+		if self.0.len() == 0 {
+			Default::default()
+		} else {
+			Self(self.0[0..self.0.len() - 1].to_vec())
+		}
+	}
+
+	pub fn basename(&self) -> Option<String> {
+		self.0.last().cloned()
 	}
 }
 
@@ -119,7 +129,7 @@ impl Dir {
 
 	pub fn binary_search<T: ToString>(&self, name: T) -> Result<usize, usize> {
 		self.children
-			.binary_search_by(|entry| (*entry.0).borrow().name.cmp(&name.to_string()))
+			.binary_search_by(|entry| entry.borrow().name.cmp(&name.to_string()))
 	}
 
 	pub fn get_child_index<T: ToString>(&self, name: T) -> Option<usize> {
@@ -131,7 +141,7 @@ impl Dir {
 	}
 
 	pub fn add_child(&mut self, node: Node) -> FsResult {
-		let name: String = (*node.0).borrow().name.clone();
+		let name: String = node.borrow().name.clone();
 		match self.binary_search(&name) {
 			Ok(_) => Err(FsError::PathAlreadyExists),
 			Err(index) => {
@@ -146,6 +156,7 @@ impl Dir {
 	}
 }
 
+#[derive(Clone)]
 pub struct Root {
 	pub node: Node,
 }
@@ -230,12 +241,20 @@ pub struct NodeData {
 
 #[allow(dead_code)]
 impl Node {
-	pub fn borrow(&self) -> Ref<'_, NodeData> {
+	pub fn data(&self) -> Ref<'_, NodeData> {
 		(*self.0).borrow()
 	}
 
-	pub fn borrow_mut(&self) -> RefMut<'_, NodeData> {
+	pub fn data_mut(&self) -> RefMut<'_, NodeData> {
 		(*self.0).borrow_mut()
+	}
+
+	pub fn borrow(&self) -> Ref<'_, NodeData> {
+		self.data()
+	}
+
+	pub fn borrow_mut(&self) -> RefMut<'_, NodeData> {
+		self.data_mut()
 	}
 
 	pub fn downgrade(&self) -> WeakNode {
@@ -344,6 +363,7 @@ impl Node {
 	}
 }
 
+#[allow(dead_code)]
 impl WeakNode {
 	pub fn upgrade(&self) -> Option<Node> {
 		Weak::upgrade(&self.0).map(|v| Node(v))

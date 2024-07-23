@@ -16,6 +16,12 @@ ratatui = "0.26.3"
 ron = "0.8.1"
 serde = "1.0.204"
 
+[dependencies.rustyline]
+version = "14.0.0"
+features = [
+	"derive"
+]
+
 [dependencies.windows]
 version = "0.57.0"
 features = [
