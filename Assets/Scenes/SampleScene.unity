@@ -1327,6 +1327,10 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: -162022476859843785, guid: bd3b22a2b8491694e8afde77ff8aa1a9, type: 3}
+      propertyPath: args.TerminalType
+      value: 2
+      objectReference: {fileID: 0}
     - target: {fileID: 1644252719520925658, guid: bd3b22a2b8491694e8afde77ff8aa1a9, type: 3}
       propertyPath: m_LocalPosition.x
       value: 6.8027577
@@ -2520,7 +2524,7 @@ MonoBehaviour:
   - {fileID: 904636909117164091}
   highlightedLayer: 7
   args:
-    Index: 0
+    TerminalType: 0
 --- !u!208 &7655125067487129894
 NavMeshObstacle:
   m_ObjectHideFlags: 0

@@ -3,8 +3,10 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.IO;
 using System.IO.Pipes;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using Unity.Burst.Intrinsics;
 using UnityEngine;
@@ -22,26 +24,38 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
 #endif
 
     Process process = null;
-    TerminalServer server = new();
+    IPC.Server server = new();
 
-    IMessage terminateMessage = null;
-    public System.Action<IMessage> TerminateEvent;
+    public System.Action<IPC.IMessage> MessageEvent;
+    public System.Action TerminateEvent;
+
+    Queue<IPC.IMessage> messageQueue = new();
+
+    CancellationTokenSource cancellationTokenSource = new();
+
+    Task messageReaderTask = null;
+
+    bool terminated = false;
 
     void Update()
     {
-        // NOTE: This is done this way to 
-        // make sure the terminate event is sent during
-        // a unity lifecycle message.
-        // Otherwise, it might be called between
-        // messages, and this causes undefined behavior.
-        if(terminateMessage != null)
+        lock (messageQueue)
         {
-            TerminateEvent?.Invoke(terminateMessage);
-            terminateMessage = null;
+            while (messageQueue.TryDequeue(out var msg))
+            {
+                Debug.Log($"MESSAGE RECEIVED: {msg}");
+                MessageEvent?.Invoke(msg);
+            }
+        }
+
+        if (terminated)
+        {
+            TerminateEvent?.Invoke();
+            terminated = false;
         }
     }
 
-    public void StartTerminal(InitializeMessage initialize)
+    public void StartTerminal(IPC.InitializeMessage initialize)
     {
         server.Start();
         process = new Process() { 
@@ -54,42 +68,75 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
         process.Exited += OnProcessExited;
         process.Start();
         HideWindow();
-        Task.Run(async () =>
+        messageReaderTask = Task.Run(async () =>
         {
-            var task = server.AcceptAsync();
-            var completed = await Task.WhenAny(task, Task.Delay(1000));
-            if (completed != task)
-            {
-                Debug.LogError("Could not connect");
-            }
-            else
-            {
-                Debug.Log("Connected");
-                server.WriteMessage(initialize);
-            }
+            await OnServerStarted(initialize);
         });
+    }
+
+    async Task OnServerStarted(IPC.InitializeMessage initializeMessage)
+    {
+        var task = server.AcceptAsync();
+        var completed = await Task.WhenAny(task, Task.Delay(1000));
+        if (completed != task)
+        {
+            Debug.LogError("Could not connect");
+        }
+        else
+        {
+            Debug.Log("Connected");
+            server.WriteMessage(initializeMessage);
+        }
+        try
+        {
+            while (true)
+            {
+                Debug.Log("Reading message...");
+                var msg = await server.ReadMessageAsync(cancellationTokenSource.Token);
+                Debug.Log("Message read.");
+                lock (messageQueue)
+                {
+                    messageQueue.Enqueue(msg);
+                }
+                // if the process terminated, don't read any more messages
+                if(process == null)
+                {
+                    break;
+                }
+            }
+        }
+        catch(TaskCanceledException)
+        {
+            // polling cancelled via cancellationTokenSource.Cancel()
+        }
     }
 
     private void OnProcessExited(object sender, System.EventArgs e)
     {
-        Debug.Log("Process exited.");
-
-        var task = server.ReadMessageAsync();
-        if(!task.Wait(1000))
-        {
-            Debug.Log("Shutdown message not sent");
-        }
-        else
-        {
-            terminateMessage = task.Result;
-        }
-
-        Debug.Log($"Process exited: {process.ExitCode}");
-        ShowWindow();
-    
         process = null;
 
+        // if there is no more data, just immediately quit
+        if(!server.DataAvailable)
+        {
+            cancellationTokenSource.Cancel();
+        }
+        // otherwise, wait (max 1s) for the messaging thread to finish
+        // and, if it doesn't, force quit it.
+        else
+        {
+            var task = Task.WhenAny(Task.Delay(1000), messageReaderTask);
+            task.Wait();
+            if(task.Result != messageReaderTask)
+            {
+                cancellationTokenSource.Cancel();
+            }
+        }
+
+        ShowWindow();
+
         server.Stop();
+
+        terminated = true;
     }
 
     void StopTerminal()
