@@ -31,7 +31,7 @@ impl From<GExitCode> for ExitCode {
         match value {
             GExitCode::Success => ExitCode::SUCCESS,
             GExitCode::Failure => ExitCode::FAILURE,
-            other => Self::from(other as u8)
+            other => Self::from(other as u8),
         }
     }
 }
@@ -41,14 +41,16 @@ fn terminal0(connection: Box<RefCell<dyn ipc::Connection>>) -> Result<GExitCode>
 
     // this is so that, for certain tiling window managers
     // with certain term emulators
-    // (caugh caugh hyprland/urxvt), they clear after 
+    // (caugh caugh hyprland/urxvt), they clear after
     // the position has been set
     std::thread::sleep(std::time::Duration::from_millis(16));
     g.queue_process("clear", []);
     g.queue_process("cmd", []);
     while let Some((name, args)) = g.get_queued_process() {
         let res = g.start_exe_from_path(&name, args).map_err(|e| match e {
-            FsError::NotExecutable => std::io::Error::other("Tried to run process that does not exist"),
+            FsError::NotExecutable => {
+                std::io::Error::other("Tried to run process that does not exist")
+            }
             e => std::io::Error::other(format!("Unknown error: {e:?}")),
         });
 
@@ -68,8 +70,7 @@ fn centered_rect(area: Rect, width: u16, height: u16) -> Rect {
     area
 }
 
-
-fn setup(){
+fn setup() {
     log::init();
 }
 
@@ -85,8 +86,7 @@ fn main() -> Result<ExitCode> {
         let connection: Box<RefCell<dyn Connection>> = {
             if let Some(c) = ipc::StreamConnection::tcp() {
                 Box::new(RefCell::new(c))
-            }
-            else {
+            } else {
                 loop {
                     println!("Connection failed. Continue with debug? [Yn]");
                     let mut buf = String::new();
@@ -95,12 +95,10 @@ fn main() -> Result<ExitCode> {
                     if let Some(ch) = trimmed.chars().next() {
                         if ch == 'n' {
                             return Ok(GExitCode::ConnectionError);
-                        }
-                        else if ch == 'y' {
+                        } else if ch == 'y' {
                             break;
                         }
-                    }
-                    else {
+                    } else {
                         break;
                     }
                 }
@@ -109,13 +107,15 @@ fn main() -> Result<ExitCode> {
         };
 
         let message = {
-            if let Ok(ipc::Message::Initialize(init)) = connection.borrow_mut().read_message_expecting(ipc::msg::MessageType::Initialize) {
+            if let Ok(ipc::Message::Initialize(init)) = connection
+                .borrow_mut()
+                .read_message_expecting(ipc::msg::MessageType::Initialize)
+            {
                 init
+            } else {
+                return Ok(GExitCode::NoInitialization);
             }
-            else {
-                return Ok(GExitCode::NoInitialization)
-            }
-        }; 
+        };
 
         match message.terminal_type {
             ipc::TerminalType::OS => terminal0(connection),
@@ -137,7 +137,7 @@ fn main() -> Result<ExitCode> {
                 }
             }
             res.map(|exit_code| exit_code.into())
-        },
+        }
         Err(reason) => {
             log!("Panicked with error: {:?}", reason);
             Ok(GExitCode::Panic.into())
