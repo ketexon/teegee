@@ -13,6 +13,7 @@ const SERVER_ADDRESS: std::net::SocketAddr = SocketAddr::new(
 
 
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum ParseError {
 	InvalidLength,
 	UnknownMessage,
@@ -39,7 +40,7 @@ impl Read for IoStream {
 			.take(buf.len())
 			.collect::<Vec<u8>>();
 
-		buf.write(bytes.as_slice())?;
+		buf.write_all(bytes.as_slice())?;
 		Ok(bytes.len())
 	}
 }
@@ -47,7 +48,7 @@ impl Read for IoStream {
 impl Write for IoStream {
 	fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
 		std::io::stdout()
-			.write(
+			.write_all(
 				buf.iter()
 					.map(|n| format!("{n:x}"))
 					.collect::<Vec<String>>()
@@ -94,7 +95,7 @@ impl Connection for StreamConnection {
 			println!("Reading message...");
 		}
 		self.read_value::<MessageHeader>()
-			.or_else(|e| Err(ParseError::Io(e)))
+			.map_err(ParseError::Io)
 			.and_then(|header| self.parse_message(&header))
 	}
 }
@@ -151,8 +152,8 @@ impl StreamConnection {
 
 	fn parse_message(&mut self, header: &MessageHeader) -> Result<Message, ParseError> {
 		match header.ty {
-			MessageType::Initialize => self.parse_message_type::<InitializeMessage>(&header),
-			MessageType::UnlockDoor => self.parse_message_type::<UnlockDoorMessage>(&header),
+			MessageType::Initialize => self.parse_message_type::<InitializeMessage>(header),
+			MessageType::UnlockDoor => self.parse_message_type::<UnlockDoorMessage>(header),
 			#[allow(unreachable_patterns)] // the server can send messages that cannot be casted to MessageType
 			_ => Err(ParseError::UnknownMessage)
 		}
@@ -165,7 +166,7 @@ impl StreamConnection {
 		else {
 			self.read_value::<T>()
 				.map(|m| m.into())
-				.or_else(|e| Err(ParseError::Io(e)))
+				.map_err(ParseError::Io)
 		}
 	}
 }

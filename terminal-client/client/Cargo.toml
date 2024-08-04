@@ -21,13 +21,3 @@ version = "14.0.0"
 features = [
 	"derive"
 ]
-
-[dependencies.windows]
-version = "0.57.0"
-features = [
-	"Win32_System_Console",
-	"Win32_UI_WindowsAndMessaging",
-	"Win32_Storage_FileSystem",
-	"Win32_Security",
-	"Win32_System_Pipes"
-]

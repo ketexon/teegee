@@ -11,7 +11,7 @@ pub fn init(){
 			);
 
 		LOG_PATH = log_dir_path.clone().map(|dir|
-			dir.join(format!("LOG-{}.txt", chrono::Utc::now().to_string().replace(":", "_")))
+			dir.join(format!("LOG-{}.txt", chrono::Utc::now().to_string().replace(':', "_")))
 		);
 		if let Some(dir) = log_dir_path {
 			let _ = std::fs::create_dir_all(dir);
@@ -36,8 +36,7 @@ macro_rules! dbg {
 pub fn log(fmt: std::fmt::Arguments<'_>){
 	if let Some(file) = unsafe { LOG_PATH.clone() } {
 		let f = std::fs::OpenOptions::new()
-			.create(true)
-			.write(true)
+			.create(true)	
 			.append(true)
 			.open(file.clone());
 

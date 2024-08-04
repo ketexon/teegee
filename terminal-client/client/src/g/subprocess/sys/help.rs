@@ -16,14 +16,13 @@ pub const HELP: Subprocess = {
 						"\tIf exe_name is not specified, shows all executables."
 					).into()
 				),
-				..Default::default()
 			}
 		}
 
 		fn run(&self, g: &Game, args: Vec<String>) -> std::io::Result<()> {
 			if args.len() == 1 {
-				let subprocess_name = args.get(0).unwrap();
-				match g.current_computer().which_node(&subprocess_name) {
+				let subprocess_name = args.first().unwrap();
+				match g.current_computer().which_node(subprocess_name) {
 					Some(node) => {
 						let data = node.borrow();
 						match data.content {

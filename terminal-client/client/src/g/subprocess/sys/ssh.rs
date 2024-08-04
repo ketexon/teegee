@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use rustyline::{config::Configurer, history::DefaultHistory};
 
 use crate::{g::{subprocess::{Subprocess, SubprocessFn, SubprocessInfo}, Game}, ipc::SwitchComputerMessage, rl::password::PasswordHelper};
@@ -54,7 +52,7 @@ pub const SSH: Subprocess = {
 
 							g.current_computer().should_quit.set(true);
 							println!("Successfully connected");
-							g.change_computers_by_address(&host);
+							g.change_computers_by_address(host);
 							g.queue_process("cmd", []);
 						}
 					}

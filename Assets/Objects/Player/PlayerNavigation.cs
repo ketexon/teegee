@@ -15,6 +15,7 @@ public class PlayerNavigation : MonoBehaviour
     public UnityEvent NavigationFinishedEvent;
 
     bool atDestination = true;
+    bool waypointSet = false;
 
     void Reset()
     {
@@ -30,21 +31,25 @@ public class PlayerNavigation : MonoBehaviour
     {
         agent.destination = pos;
 
-        activeWaypointIndicator.SetActive(true);
-        activeWaypointIndicator.transform.position = agent.destination;
-
         if (!atDestination)
         {
             NavigationCancelledEvent.Invoke();
         }
         NavigationStartedEvent.Invoke();
         atDestination = false;
+        waypointSet = false;
     }
 
     void Update()
     {
-        if (!atDestination)
+        if (!atDestination && !agent.pathPending)
         {
+            if(!waypointSet) {
+                activeWaypointIndicator.SetActive(true);
+                activeWaypointIndicator.transform.position = agent.pathEndPosition;
+                waypointSet = true;
+            }
+
             if(Mathf.Approximately(Vector3.Distance(agent.pathEndPosition, agent.transform.position), 0))
             {
                 atDestination = true;

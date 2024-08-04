@@ -5,6 +5,9 @@ using UnityEngine;
 
 public class Interactable : MonoBehaviour
 {
+    [SerializeField]
+    public Transform Front;
+
     [SerializeField] List<Renderer> toonRenderers = new();
     [SerializeField, Layer] int highlightedLayer;
 
@@ -32,7 +35,7 @@ public class Interactable : MonoBehaviour
             r.gameObject.layer = highlightedLayer;
         }
     }
-    public void Unhighlight() { 
+    public void Unhighlight() {
         if(!highlighted) return;
         highlighted = false;
 

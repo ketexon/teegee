@@ -1,3 +1,7 @@
+#if UNITY_EDITOR_LINUX || UNITY_STANDALONE_LINUX
+#define UNITY_LINUX
+#endif
+
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -16,10 +20,20 @@ using Process = System.Diagnostics.Process;
 public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
 {
 #if UNITY_EDITOR
+#   if UNITY_EDITOR_WIN
     const string TerminalExecutableRelativePath = "../terminal-client/target/debug/terminal-client.exe";
+#   elif UNITY_EDITOR_LINUX
+    const string TerminalExecutableRelativePath = "../terminal-client/target/debug/terminal-client";
+#   endif
+
     string TerminalExecutablePath => Path.Combine(Application.dataPath, TerminalExecutableRelativePath);
 #else
+#   if UNITY_EDITOR_WIN
     const string TerminalExecutableRelativePath = "terminal-client.exe";
+#   elif UNITY_EDITOR_LINUX
+    const string TerminalExecutableRelativePath = "terminal-client";
+#   endif
+
     string TerminalExecutablePath => Path.Combine(Application.streamingAssetsPath, TerminalExecutableRelativePath);
 #endif
 
@@ -31,7 +45,7 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
 
     Queue<IPC.IMessage> messageQueue = new();
 
-    CancellationTokenSource cancellationTokenSource = new();
+    CancellationTokenSource cancellationTokenSource = null;
 
     Task messageReaderTask = null;
 
@@ -57,14 +71,28 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
 
     public void StartTerminal(IPC.InitializeMessage initialize)
     {
+        cancellationTokenSource = new();
+
         server.Start();
-        process = new Process() { 
+#if UNITY_LINUX
+        Debug.Log(Sys.GetTerminalEmulator());
+        process = new Process() {
+            EnableRaisingEvents = true,
+            StartInfo =
+            {
+                FileName = Sys.GetTerminalEmulator(),
+                Arguments = $"-e '{TerminalExecutablePath}'"
+            },
+        };
+#else
+        process = new Process() {
             EnableRaisingEvents = true,
             StartInfo =
             {
                 FileName = TerminalExecutablePath,
             },
         };
+#endif
         process.Exited += OnProcessExited;
         process.Start();
         HideWindow();
@@ -107,12 +135,15 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
         }
         catch(TaskCanceledException)
         {
+            Debug.Log("Reading cancelled via cancellation token.");
             // polling cancelled via cancellationTokenSource.Cancel()
         }
     }
 
     private void OnProcessExited(object sender, System.EventArgs e)
     {
+        Debug.Log("Process exited.");
+
         process = null;
 
         // if there is no more data, just immediately quit
@@ -152,18 +183,12 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
 
     void ShowWindow()
     {
-#if !UNITY_EDITOR
         Sys.SetWindowVisible(true);
-#endif
-        Debug.Log("SHOW WINDOW");
     }
 
     void HideWindow()
     {
-#if !UNITY_EDITOR
         Sys.SetWindowVisible(false);
-#endif
-        Debug.Log("Hide WINDOW");
     }
 
     void OnDestroy()

@@ -20,7 +20,7 @@ fn parse_command<T: IntoIterator<Item = char>>(command: T) -> Vec<String> {
 				'\\' => escaping = true,
 				'"' => in_string = !in_string,
 				ch if ch.is_whitespace() && !in_string => {
-					if cur_arg.len() > 0 {
+					if !cur_arg.is_empty() {
 						args.push(cur_arg.clone());
 					}
 					cur_arg.clear();
@@ -30,11 +30,11 @@ fn parse_command<T: IntoIterator<Item = char>>(command: T) -> Vec<String> {
 		}
 	}
 
-	if cur_arg.len() > 0 {
+	if !cur_arg.is_empty() {
 		args.push(cur_arg);
 	}
 
-	return args;
+	args
 }
 
 const DEFAULT_PS1: &str = "\\u@\\H \\w$ ";
@@ -79,11 +79,9 @@ pub const CMD: Subprocess = {
 				if ch == '\\' {
 					escaping = true;
 				}
-				else if !escaping {
-					if pred(ch) {
+				else if !escaping && pred(ch) {
 						return Some(i)
 					}
-				}
 			}
 			None
 		}
@@ -178,13 +176,13 @@ pub const CMD: Subprocess = {
 				};
 				let unescaped = Self::unescape(word);
 				let path = Path::parse(&self.0.current_computer().cwd.borrow(), &unescaped);
-				let dir_path = if unescaped.ends_with("/") {
+				let dir_path = if unescaped.ends_with('/') {
 					path.clone()
 				} else {
 					path.parent()
 				};
 
-				let basename = if unescaped.ends_with("/") {
+				let basename = if unescaped.ends_with('/') {
 					String::new()
 				} else {
 					path.basename().unwrap_or("".into())
@@ -242,26 +240,20 @@ pub const CMD: Subprocess = {
 						.unwrap_or(DEFAULT_PS1.into());
 
 					rl.readline(
-						&format!("{}",
-							ps1.replace("\\u", &g.current_computer().current_user().name)
-								.replace("\\H", &g.current_computer().name)
-								.replace("\\w", &g.current_computer().cwd.borrow().to_string())
-						)
+						&ps1.replace("\\u", &g.current_computer().current_user().name)
+							.replace("\\H", &g.current_computer().name)
+							.replace("\\w", &g.current_computer().cwd.borrow().to_string())
+							.to_string()
 					).unwrap_or("".into())
 				};
 
 				let args = parse_command(line.chars());
 
-				if args.len() > 0 {
+				if !args.is_empty() {
 					let proc_name = args[0].clone();
 
-					if let Err(e) = g.start_exe_from_path(&proc_name, &args[1..]) {
-						match e {
-							FsError::PathIsNotExecutable => {
-								println!("Could not find process \"{}\"\nType \"help\" to list all processes.", proc_name);
-							}
-							_ => ()
-						}
+					if let Err(FsError::NotExecutable) = g.start_exe_from_path(&proc_name, &args[1..]) {
+						println!("Could not find process \"{}\"\nType \"help\" to list all processes.", proc_name);
 					}
 				}
 			}

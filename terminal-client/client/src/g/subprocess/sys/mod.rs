@@ -8,12 +8,14 @@ mod help;
 mod logout;
 mod which;
 mod ssh;
+mod clear;
 
 pub use cmd::*;
 pub use help::*;
 pub use logout::*;
 pub use which::*;
 pub use ssh::*;
+pub use clear::*;
 
 pub const DEFAULT: &[(&str, Subprocess)] = &[
 	("cmd", CMD),
@@ -21,4 +23,5 @@ pub const DEFAULT: &[(&str, Subprocess)] = &[
 	("ssh", SSH),
 	("help", HELP),
 	("which", WHICH),
+	("clear", CLEAR),
 ];

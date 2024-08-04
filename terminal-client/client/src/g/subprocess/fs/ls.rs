@@ -11,7 +11,7 @@ pub const LS: Subprocess = {
 
 			let cwd = g.current_computer().cwd.borrow().clone();
 			let dir = if args.len() == 1 {
-				Path::parse(&cwd, args.get(0).unwrap())
+				Path::parse(&cwd, args.first().unwrap())
 			} else {
 				cwd
 			};

@@ -15,7 +15,7 @@ pub const WHICH: Subprocess = {
 			else {
 				println!("Could not find executable: \"{}\"", args[0])
 			}
-			return Ok(())
+			Ok(())
 		}
 	}
 

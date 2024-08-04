@@ -198,21 +198,21 @@ impl ComputerBuilder {
 		self.add_fs_node(root, Node::exe(name, date, subprocess))
 	}
 
-	pub fn add_exes<'a, T: ToString, It>(self, root: &Path, exes: It) -> Self
+	pub fn add_exes<T: ToString, It>(self, root: &Path, exes: It) -> Self
 		where It: IntoIterator<Item=(T, NodeDateTime, &'static dyn SubprocessFn)>
 	{
 		exes.into_iter().fold(self,
 			|s, (name, date, subprocess)|
-			s.add_exe(&root, name, date, subprocess)
+			s.add_exe(root, name, date, subprocess)
 		)
 	}
 
-	pub fn add_exes_same_date<'a, T: ToString, It>(self, root: &Path, date: NodeDateTime, exes: It) -> Self
+	pub fn add_exes_same_date<T: ToString, It>(self, root: &Path, date: NodeDateTime, exes: It) -> Self
 		where It: IntoIterator<Item=(T, &'static dyn SubprocessFn)>
 	{
 		exes.into_iter().fold(self,
 			|s, (name, subprocess)|
-			s.add_exe(&root, name, date, subprocess)
+			s.add_exe(root, name, date, subprocess)
 		)
 	}
 

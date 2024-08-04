@@ -46,7 +46,6 @@ public class PlayerPoint : MonoBehaviour
     {
         var ray = Player.Instance.Camera.ScreenPointToRay(mousePos);
 
-        Vector3? newNavMeshDestination = null;
         Interactable newInteractable = null;
         RaycastHit hitInfo = new();
 
@@ -55,19 +54,26 @@ public class PlayerPoint : MonoBehaviour
             if (interactableLayer.Contains(goLayer))
             {
                 newInteractable = hitInfo.collider.gameObject.GetComponent<Interactable>();
+                navMeshDestination = null;
+                inactiveWaypointIndicator.SetActive(false);
             }
-            // the hit is on a walkable part of the navmesh
-            else if (NavMesh.SamplePosition(hitInfo.point, out var _, .1f, walkableMask))
-            {
-                newNavMeshDestination = hitInfo.point;
-            
+            else {
+                navMeshDestination = hitInfo.point;
                 inactiveWaypointIndicator.SetActive(true);
-                inactiveWaypointIndicator.transform.position = newNavMeshDestination.Value;
+                inactiveWaypointIndicator.transform.position = hitInfo.point;
+                inactiveWaypointIndicator.transform.rotation = Quaternion.FromToRotation(Vector3.up, hitInfo.normal);
             }
+            // this code can be used to determine if the
+            // hit point is on a walkable part of the navmesh
+            // else if (NavMesh.SamplePosition(hitInfo.point, out var _, .1f, walkableMask))
+            // {
+            //     navMeshDestination = hitInfo.point;
+            // }
         }
-
-        navMeshDestination = newNavMeshDestination;
-        inactiveWaypointIndicator.SetActive(navMeshDestination != null);
+        else {
+            navMeshDestination = null;
+            inactiveWaypointIndicator.SetActive(false);
+        }
 
 
         if(interactable != newInteractable)
@@ -88,27 +94,31 @@ public class PlayerPoint : MonoBehaviour
 
     void OnClick(InputAction.CallbackContext ctx)
     {
-        if(navMeshDestination != null)
-        {
-            Player.Instance.Navigation.NavigateTo(navMeshDestination.Value);
-        }
-
         if (interactable)
         {
-            Vector3 closest = Physics.ClosestPoint(
-                transform.position, 
-                interactableCollider,
-                interactableCollider.transform.position,
-                interactableCollider.transform.rotation
-            );
+            Vector3 interactPoint = interactable.Front
+                ? interactable.Front.position
+                // if the interactable did not specify
+                // front, just find the closest point on its surface
+                : Physics.ClosestPoint(
+                    transform.position,
+                    interactableCollider,
+                    interactableCollider.transform.position,
+                    interactableCollider.transform.rotation
+                );
 
-            if (Vector3.Distance(closest.ProjectXZ(), transform.position.ProjectXZ()) > interactDistance) {
-                Player.Instance.Navigation.NavigateTo(interactable.transform.position);
+            if (Vector3.Distance(interactPoint.ProjectXZ(), transform.position.ProjectXZ()) > interactDistance) {
+                Player.Instance.Navigation.NavigateTo(interactPoint);
             }
             else
             {
                 interactable.Interact();
             }
+        }
+
+        if(navMeshDestination.HasValue)
+        {
+            Player.Instance.Navigation.NavigateTo(navMeshDestination.Value);
         }
     }
 }

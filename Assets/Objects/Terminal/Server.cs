@@ -29,11 +29,6 @@ namespace IPC
             listener = new(EndPoint);
         }
 
-        public void Start()
-        {
-            listener.Start();
-        }
-
         public bool Pending => listener?.Pending() ?? false;
 
         byte[] DataToBytes<T>(T data)
@@ -247,6 +242,11 @@ namespace IPC
         #endregion
 
         #region Start/Stop
+        public void Start()
+        {
+            listener.Start();
+        }
+
         public void Stop()
         {
             stream?.Dispose();

@@ -75,15 +75,15 @@ impl Game {
 	}
 
 	pub fn start_exe_from_path<U: Into<Vec<String>>>(&self, name: &str, args: U) -> Result<std::io::Result<()>, fs::FsError> {
-		self.current_computer().which_node(&name.to_string())
-			.ok_or(fs::FsError::PathIsNotExecutable)
+		self.current_computer().which_node(name)
+			.ok_or(fs::FsError::NotExecutable)
 			.and_then(|node| self.start_exe(node, args))
 	}
 
 	pub fn start_exe<U: Into<Vec<String>>>(&self, node: Node, args: U) -> Result<std::io::Result<()>, fs::FsError> {
 		node.as_exe()
-			.ok_or(fs::FsError::PathIsNotExecutable)
-			.map(|node| node.run(&self, args.into()))
+			.ok_or(fs::FsError::NotExecutable)
+			.map(|node| node.run(self, args.into()))
 	}
 
 	pub fn queue_process<U: Into<Vec<String>>>(&self, name: &str, args: U) {

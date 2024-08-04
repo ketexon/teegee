@@ -12,6 +12,10 @@ PrefabInstance:
       propertyPath: m_Name
       value: Terminal
       objectReference: {fileID: 0}
+    - target: {fileID: 5115256227530440532, guid: c87e4dc48c3189244abaa691640cb65a, type: 3}
+      propertyPath: m_Mesh
+      value: 
+      objectReference: {fileID: 10202, guid: 0000000000000000e000000000000000, type: 0}
     - target: {fileID: 8147803327063085063, guid: c87e4dc48c3189244abaa691640cb65a, type: 3}
       propertyPath: m_LocalPosition.x
       value: 0
@@ -81,7 +85,7 @@ MonoBehaviour:
   - {fileID: 7840285389719095554}
   highlightedLayer: 7
   args:
-    Index: 0
+    TerminalType: 0
 --- !u!23 &7840285389719095554 stripped
 MeshRenderer:
   m_CorrespondingSourceObject: {fileID: 796304613466758879, guid: c87e4dc48c3189244abaa691640cb65a, type: 3}

@@ -14,15 +14,15 @@ macro_rules! date {
 
 #[derive(Debug, Clone)]
 pub enum FsError {
-	PathAlreadyExists,
-	PathDoesNotExist,
-	PathIsNotDirectory,
-	PathIsNotExecutable,
+	AlreadyExists,
+	DoesNotExist,
+	NotDirectory,
+	NotExecutable,
 }
 
 pub type FsResult<R = ()> = Result<R, FsError>;
 
-#[derive(Clone, Debug)]
+#[derive(Default, Clone, Debug)]
 pub struct Path(pub Vec<String>);
 
 #[macro_export]
@@ -32,11 +32,6 @@ macro_rules! path {
     ($($x:expr),+ $(,)?) => { Path::new(vec![$($x.to_string()),+]) };
 }
 
-impl Default for Path {
-	fn default() -> Self {
-		Self(Vec::new())
-	}
-}
 
 impl Path {
 	pub fn new<T: Into<Vec<String>>>(path: T) -> Self {
@@ -63,7 +58,7 @@ impl Path {
 	pub fn normalized(&self) -> Self {
 		let mut new_path: Vec<String> = Default::default();
 		for sub in &self.0 {
-			if sub.len() == 0 || sub == "." { continue; }
+			if sub.is_empty() || sub == "." { continue; }
 			else if sub == ".." {
 				new_path.pop();
 			}
@@ -75,7 +70,7 @@ impl Path {
 	}
 
 	pub fn parent(&self) -> Self {
-		if self.0.len() == 0 {
+		if self.0.is_empty() {
 			Default::default()
 		} else {
 			Self(self.0[0..self.0.len() - 1].to_vec())
@@ -142,8 +137,8 @@ impl Dir {
 
 	pub fn add_child(&mut self, node: Node) -> FsResult {
 		let name: String = node.borrow().name.clone();
-		match self.binary_search(&name) {
-			Ok(_) => Err(FsError::PathAlreadyExists),
+		match self.binary_search(name) {
+			Ok(_) => Err(FsError::AlreadyExists),
 			Err(index) => {
 				self.children.insert(index, node);
 				Ok(())
@@ -230,7 +225,6 @@ pub struct WeakNode(pub Weak<RefCell<NodeData>>);
 
 #[derive(Debug, Clone)]
 pub struct NodeData {
-	pub parent: Weak<RefCell<NodeData>>,
 	pub name: String,
 	pub date: NodeDateTime,
 	pub content: NodeContent,
@@ -267,7 +261,6 @@ impl Node {
 
 	pub fn dir<T: ToString>(name: T, date: NodeDateTime, dir: Dir) -> Self {
 		Self::new(NodeData {
-			parent: Weak::new(),
 			name: name.to_string(),
 			date,
 			content: NodeContent::Dir(dir),
@@ -280,7 +273,6 @@ impl Node {
 
 	pub fn file<T: ToString>(name: T, date: NodeDateTime, file: File) -> Self {
 		Self::new(NodeData {
-			parent: Weak::new(),
 			name: name.to_string(),
 			date,
 			content: NodeContent::File(file),
@@ -292,7 +284,6 @@ impl Node {
 
 	pub fn exe<T: ToString>(name: T, date: NodeDateTime, subprocess: &'static dyn SubprocessFn) -> Self {
 		Self::new(NodeData {
-			parent: Weak::new(),
 			name: name.to_string(),
 			date,
 			content: NodeContent::Executable(subprocess),
@@ -351,14 +342,14 @@ impl Node {
 			NodeContent::Dir(dir) => {
 				dir.add_child(node)
 			}
-			_ => Err(FsError::PathIsNotDirectory)
+			_ => Err(FsError::NotDirectory)
 		}
 	}
 
 	pub fn add_node(&self, dir: &Path, node: Node) -> FsResult<()> {
 		match self.get_node(dir) {
 			Some(dir) => dir.add_child(node).and(Ok(())),
-			None => Err(FsError::PathDoesNotExist)
+			None => Err(FsError::DoesNotExist)
 		}
 	}
 }
@@ -366,6 +357,6 @@ impl Node {
 #[allow(dead_code)]
 impl WeakNode {
 	pub fn upgrade(&self) -> Option<Node> {
-		Weak::upgrade(&self.0).map(|v| Node(v))
+		Weak::upgrade(&self.0).map(Node)
 	}
 }
