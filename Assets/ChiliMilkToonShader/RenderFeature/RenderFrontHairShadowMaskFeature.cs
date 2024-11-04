@@ -25,7 +25,7 @@ public class RenderFrontHairShadowMaskFeature : ScriptableRendererFeature
         static RenderTargetIdentifier mask_idt = new RenderTargetIdentifier(maskId);
         static string keyword = "_HAIRSHADOWMASK";
         ShaderTagId maskTag = new ShaderTagId("HairShadowMask");
-        
+
 
         public override void Configure(CommandBuffer cmd, RenderTextureDescriptor cameraTextureDescriptor)
         {

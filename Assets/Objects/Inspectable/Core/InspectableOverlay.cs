@@ -105,6 +105,7 @@ public class InspectableOverlay : SingletonMonoBehaviour<InspectableOverlay>
     void Update()
     {
         if (!visible) return;
+        Debug.Log(rawImage.rectTransform.rect);
         if(rawImage.rectTransform.rect != lastRect)
         {
             lastRect = rawImage.rectTransform.rect;
@@ -124,8 +125,9 @@ public class InspectableOverlay : SingletonMonoBehaviour<InspectableOverlay>
         );
     }
 
-    void OnDestroy()
+    override protected void OnDestroy()
     {
+        base.OnDestroy();
         if(rt) Destroy(rt);
     }
 
@@ -149,7 +151,7 @@ public class InspectableOverlay : SingletonMonoBehaviour<InspectableOverlay>
     void OnRotate(InputAction.CallbackContext ctx)
     {
         var value = ctx.ReadValue<Vector2>();
-        inspectingObject.transform.rotation = 
+        inspectingObject.transform.rotation =
             Quaternion.Euler(value.y, -value.x, 0)
             * inspectingObject.transform.rotation;
     }
@@ -202,8 +204,8 @@ public class InspectableOverlay : SingletonMonoBehaviour<InspectableOverlay>
 
     #region Animator callbacks
     [System.Diagnostics.CodeAnalysis.SuppressMessage(
-        "CodeQuality", 
-        "IDE0051:Remove unused private members", 
+        "CodeQuality",
+        "IDE0051:Remove unused private members",
         Justification = "Unity Editor Message"
     )]
     void OnUIHidden()

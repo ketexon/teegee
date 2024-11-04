@@ -84,6 +84,7 @@ impl Connection for StreamConnection {
         }
         match msg {
             Message::Initialize(data) => self.write_message_internal(msg.get_type(), &data),
+            Message::InitializeOS(data) => self.write_message_internal(msg.get_type(), &data),
             Message::UnlockDoor(data) => self.write_message_internal(msg.get_type(), &data),
             Message::SwitchComputer(data) => self.write_message_internal(msg.get_type(), &data),
             Message::PlaySfx(data) => self.write_message_internal(msg.get_type(), &data),
@@ -158,6 +159,7 @@ impl StreamConnection {
     fn parse_message(&mut self, header: &MessageHeader) -> Result<Message, ParseError> {
         match header.ty {
             MessageType::Initialize => self.parse_message_type::<InitializeMessage>(header),
+            MessageType::InitializeOS => self.parse_message_type::<InitializeOSMessage>(header),
             MessageType::UnlockDoor => self.parse_message_type::<UnlockDoorMessage>(header),
             #[allow(unreachable_patterns)]
             // the server can send messages that cannot be casted to MessageType

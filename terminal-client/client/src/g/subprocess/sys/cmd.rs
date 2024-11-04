@@ -256,6 +256,10 @@ pub const CMD: Subprocess = {
                     .unwrap_or("".into())
                 };
 
+                if line == "exit" { 
+                    break;
+                }
+
                 let args = parse_command(line.chars());
 
                 if !args.is_empty() {

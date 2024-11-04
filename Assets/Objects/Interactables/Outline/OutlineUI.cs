@@ -15,7 +15,7 @@ public class OutlineUI : MonoBehaviour
 
     RectTransform rectTransform;
 
-    RenderTexture rt;
+    RenderTexture rt = null;
 
     Rect lastRect;
 
@@ -26,12 +26,7 @@ public class OutlineUI : MonoBehaviour
 
     void Start()
     {
-        lastRect = rectTransform.rect;
-        rt = new((int) lastRect.width, (int)lastRect.height, 16);
-        rt.Create();
-
-        rawImage.texture = rt;
-        camera.targetTexture = rt;
+        RecreateRenderTexture();
     }
 
     void Update()
@@ -46,11 +41,14 @@ public class OutlineUI : MonoBehaviour
     {
         lastRect = rectTransform.rect;
 
-        rt.Release();
+        if(rt){
+            rt.Release();
+        }
 
-        rt.width = (int) lastRect.width;
-        rt.height = (int) lastRect.height;
-
+        rt = new((int) lastRect.width, (int)lastRect.height, 16);
         rt.Create();
+
+        rawImage.texture = rt;
+        camera.targetTexture = rt;
     }
 }

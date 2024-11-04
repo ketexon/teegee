@@ -187,10 +187,14 @@ namespace IPC
             {
                 case MessageType.Initialize:
                     return await Internal<InitializeMessage>();
+                case MessageType.InitializeOS:
+                    return await Internal<InitializeOSMessage>();
                 case MessageType.UnlockDoor:
                     return await Internal<UnlockDoorMessage>();
                 case MessageType.PlaySfx:
                     return await Internal<PlaySfxMessage>();
+                case MessageType.SwitchComputers:
+                    return await Internal<SwitchComputersMessage>();
                 default:
                     UnityEngine.Debug.LogError($"Received unknown message type: {messageHeader.Type}");
                     throw new NotImplementedException($"Unknown message sent: {messageHeader.Type}");

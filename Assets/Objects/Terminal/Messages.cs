@@ -8,6 +8,7 @@ namespace IPC
     public enum MessageType : uint
     {
         Initialize = 0,
+        InitializeOS = 4,
         UnlockDoor = 1,
         SwitchComputers = 2,
         PlaySfx = 3,
@@ -46,6 +47,15 @@ namespace IPC
 
         [FormerlySerializedAs("Index")]
         public TerminalType TerminalType;
+    }
+
+    [Serializable]
+    [StructLayout(LayoutKind.Sequential)]
+    public struct InitializeOSMessage : IMessage
+    {
+        public MessageType Type => MessageType.InitializeOS;
+
+        public ComputerID ComputerID;
     }
 
     [Serializable]

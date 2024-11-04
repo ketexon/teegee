@@ -9,7 +9,7 @@ use std::{
 };
 
 pub use computer::Computer;
-use computer::{ComputerBuilder, User};
+use computer::{ComputerBuilder, ComputerId, User};
 use fs::{File, Node, Path};
 
 use crate::{date, ipc, path};
@@ -24,17 +24,22 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new(connection: Box<RefCell<dyn ipc::Connection>>) -> Self {
+    pub fn new(
+        connection: Box<RefCell<dyn ipc::Connection>>,
+        initial_computer: ComputerId,
+    ) -> Self {
         let default_exes = std::iter::empty()
             .chain(subprocess::sys::DEFAULT)
             .chain(subprocess::fs::DEFAULT)
+            .chain(subprocess::myhealth::DEFAULT)
             .cloned();
 
         let computers = vec![
             ComputerBuilder::new()
+                .id(ComputerId::First)
                 .name("Plasma_XQ9")
                 .users([User::new("root", "123456")])
-                .address("64.26.62.54")
+                .address("0")
                 .with_path("bin".to_string())
                 .add_dir(&path![], "bin", date!["12 Jan 2024 12:30"])
                 .add_file(
@@ -50,8 +55,9 @@ impl Game {
                 )
                 .build(),
             ComputerBuilder::new()
+                .id(ComputerId::Second)
                 .name("Computer1")
-                .address("214.7.222.240")
+                .address("1")
                 .with_path("bin".to_string())
                 .users([User::new("root", "123456")])
                 .add_dir(&path![], "bin", date!["12 Jan 2024 12:30"])
@@ -74,10 +80,22 @@ impl Game {
             .map(|(i, c)| (c.address.clone(), i))
             .collect();
 
+        let current_computer_index = computers
+            .iter()
+            .enumerate()
+            .find_map(|(i, c)| {
+                if c.id == initial_computer {
+                    Some(i)
+                } else {
+                    None
+                }
+            })
+            .unwrap_or(0);
+
         Self {
             connection,
             computers: computers.into_iter().map(Rc::new).collect(),
-            current_computer_index: Cell::new(0),
+            current_computer_index: Cell::new(current_computer_index),
             computer_address_map,
             process_queue: RefCell::new(Default::default()),
         }

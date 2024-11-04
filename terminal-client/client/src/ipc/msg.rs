@@ -11,6 +11,7 @@ pub struct MessageHeader {
 #[derive(ToPrimitive, FromPrimitive, Debug, Clone, Copy)]
 pub enum MessageType {
     Initialize = 0,
+    InitializeOS = 4,
     UnlockDoor = 1,
     SwitchComputer = 2,
     PlaySfx = 3,
@@ -20,6 +21,7 @@ pub enum MessageType {
 #[type_path = "c"]
 pub enum Message {
     Initialize(InitializeMessage),
+    InitializeOS(InitializeOSMessage),
     UnlockDoor(UnlockDoorMessage),
     SwitchComputer(SwitchComputerMessage),
     PlaySfx(PlaySfxMessage),
@@ -29,6 +31,7 @@ impl Message {
     pub fn get_type(&self) -> MessageType {
         match self {
             Self::Initialize(_) => MessageType::Initialize,
+            Self::InitializeOS(_) => MessageType::InitializeOS,
             Self::UnlockDoor(_) => MessageType::UnlockDoor,
             Self::SwitchComputer(_) => MessageType::SwitchComputer,
             Self::PlaySfx(_) => MessageType::PlaySfx,
@@ -51,6 +54,12 @@ pub struct InitializeMessage {
 }
 
 #[derive(Reflect, Debug, Clone, Copy)]
+#[type_path = "c"]
+pub struct InitializeOSMessage {
+    pub computer_id: ComputerId,
+}
+
+#[derive(Reflect, Debug, Clone, Copy)]
 pub struct UnlockDoorMessage {
     pub code: [u8; 4],
 }
@@ -68,6 +77,12 @@ pub struct PlaySfxMessage {
 impl From<InitializeMessage> for Message {
     fn from(value: InitializeMessage) -> Self {
         Self::Initialize(value)
+    }
+}
+
+impl From<InitializeOSMessage> for Message {
+    fn from(value: InitializeOSMessage) -> Self {
+        Self::InitializeOS(value)
     }
 }
 

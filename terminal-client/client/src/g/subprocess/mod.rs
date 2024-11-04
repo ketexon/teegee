@@ -4,6 +4,7 @@ use super::Game;
 
 pub mod fs;
 pub mod sys;
+pub mod myhealth;
 
 #[derive(Debug, Clone, Default, PartialEq, PartialOrd, Eq, Ord)]
 pub struct SubprocessInfo {

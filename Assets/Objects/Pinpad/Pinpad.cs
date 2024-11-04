@@ -13,21 +13,6 @@ public class Pinpad : Terminal
 
     bool unlocked = false;
 
-    protected override void OnTerminate()
-    {
-        base.OnTerminate();
-
-        //if (unlocked)
-        //{
-        //    door.Open();
-        //    successAudioSource.Play();
-        //}
-        //else
-        //{
-        //    failureAudioSource.Play();
-        //}
-    }
-
     protected override void OnMessage(IPC.IMessage message)
     {
         base.OnMessage(message);

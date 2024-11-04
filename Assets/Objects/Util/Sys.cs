@@ -72,8 +72,6 @@ public static class Sys
 
     public static string GetTerminalEmulator()
     {
-
-
         if(selectedTerminal != null) return selectedTerminal;
         foreach(var term in terminals){
             var which = Which(term);
@@ -83,6 +81,15 @@ public static class Sys
             }
         }
         return null;
+    }
+
+    public static string GetExtraTerminalArguments(string terminalEmulator){
+        switch(terminalEmulator){
+            case "urxvt":
+                return "-name 'teegee-client'";
+            default:
+                return "";
+        }
     }
 
     [DllImport("libX11.so")]

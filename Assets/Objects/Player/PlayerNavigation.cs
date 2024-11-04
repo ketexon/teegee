@@ -40,6 +40,21 @@ public class PlayerNavigation : MonoBehaviour
         waypointSet = false;
     }
 
+    public void TeleportTo(Transform transform){
+        agent.Warp(transform.position);
+        transform.rotation = transform.rotation;
+    }
+
+    public void TeleportTo(IPC.ComputerID computerID){
+        var spawn = Room.Instance.FindRoomSpawn(computerID);
+        if(spawn == null){
+            Debug.LogError($"Tried to teleport to computer with ID {computerID}, no spawn exists.");
+        }
+        else{
+            TeleportTo(spawn);
+        }
+    }
+
     void Update()
     {
         if (!atDestination && !agent.pathPending)

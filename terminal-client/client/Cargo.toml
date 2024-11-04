@@ -12,9 +12,10 @@ dateparser = "0.2.1"
 dirs = "5.0.1"
 num-derive = "0.4.2"
 num-traits = "0.2.19"
-ratatui = "0.26.3"
+ratatui = "0.27.0"
 ron = "0.8.1"
 serde = "1.0.204"
+tui-big-text = "0.5.4"
 
 [dependencies.rustyline]
 version = "14.0.0"

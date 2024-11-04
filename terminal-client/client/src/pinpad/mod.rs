@@ -21,7 +21,7 @@ use crate::ipc::{Message, PlaySfxMessage};
 use crate::{centered_rect, ipc, GExitCode};
 
 #[allow(clippy::boxed_local)]
-pub fn terminal1(connection: Box<RefCell<dyn ipc::Connection>>) -> Result<GExitCode> {
+pub fn pinpad_terminal(connection: Box<RefCell<dyn ipc::Connection>>) -> Result<GExitCode> {
     std::io::stdout().execute(EnterAlternateScreen)?;
     std::io::stdout().execute(EnableMouseCapture)?;
     enable_raw_mode()?;

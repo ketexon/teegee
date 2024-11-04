@@ -2,17 +2,10 @@
 #define UNITY_LINUX
 #endif
 
-using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
-using System.IO.Pipes;
-using System.Net.Sockets;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using Unity.Burst.Intrinsics;
 using UnityEngine;
 
 using Process = System.Diagnostics.Process;
@@ -38,10 +31,11 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
 #endif
 
     Process process = null;
-    IPC.Server server = new();
+    public IPC.Server Server = new();
 
     public System.Action<IPC.IMessage> MessageEvent;
     public System.Action TerminateEvent;
+    public System.Action ConnectedEvent;
 
     Queue<IPC.IMessage> messageQueue = new();
 
@@ -73,15 +67,15 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
     {
         cancellationTokenSource = new();
 
-        server.Start();
+        Server.Start();
 #if UNITY_LINUX
-        Debug.Log(Sys.GetTerminalEmulator());
+        var terminalEmulator = Sys.GetTerminalEmulator();
         process = new Process() {
             EnableRaisingEvents = true,
             StartInfo =
             {
-                FileName = Sys.GetTerminalEmulator(),
-                Arguments = $"-e '{TerminalExecutablePath}'"
+                FileName = terminalEmulator,
+                Arguments = $"{Sys.GetExtraTerminalArguments(terminalEmulator)} -e '{TerminalExecutablePath}'"
             },
         };
 #else
@@ -104,7 +98,7 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
 
     async Task OnServerStarted(IPC.InitializeMessage initializeMessage)
     {
-        var task = server.AcceptAsync();
+        var task = Server.AcceptAsync();
         var completed = await Task.WhenAny(task, Task.Delay(1000));
         if (completed != task)
         {
@@ -113,14 +107,15 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
         else
         {
             Debug.Log("Connected");
-            server.WriteMessage(initializeMessage);
+            Server.WriteMessage(initializeMessage);
+            ConnectedEvent?.Invoke();
         }
         try
         {
             while (true)
             {
                 Debug.Log("Reading message...");
-                var msg = await server.ReadMessageAsync(cancellationTokenSource.Token);
+                var msg = await Server.ReadMessageAsync(cancellationTokenSource.Token);
                 Debug.Log("Message read.");
                 lock (messageQueue)
                 {
@@ -147,7 +142,7 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
         process = null;
 
         // if there is no more data, just immediately quit
-        if(!server.DataAvailable)
+        if(!Server.DataAvailable)
         {
             cancellationTokenSource.Cancel();
         }
@@ -165,7 +160,7 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
 
         ShowWindow();
 
-        server.Stop();
+        Server.Stop();
 
         terminated = true;
     }
@@ -191,8 +186,9 @@ public class TerminalMode : SingletonMonoBehaviour<TerminalMode>
         Sys.SetWindowVisible(false);
     }
 
-    void OnDestroy()
+    override protected void OnDestroy()
     {
+        base.OnDestroy();
         StopTerminal();
     }
 }

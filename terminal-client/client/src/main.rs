@@ -3,18 +3,20 @@ pub extern crate num_derive;
 
 use bevy_reflect::Reflect;
 
-use g::fs::FsError;
 use ipc::Connection;
-use pinpad::terminal1;
+use os::os_terminal;
+use pinpad::pinpad_terminal;
 use ratatui::layout::{Flex, Layout, Rect};
 use std::{cell::RefCell, io::Result, process::ExitCode};
 
 mod g;
 mod ipc;
 mod log;
+mod os;
 mod pinpad;
 pub mod rcmut;
 pub mod rl;
+pub mod tui;
 
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
@@ -34,32 +36,6 @@ impl From<GExitCode> for ExitCode {
             other => Self::from(other as u8),
         }
     }
-}
-
-fn terminal0(connection: Box<RefCell<dyn ipc::Connection>>) -> Result<GExitCode> {
-    let g = g::Game::new(connection);
-
-    // this is so that, for certain tiling window managers
-    // with certain term emulators
-    // (caugh caugh hyprland/urxvt), they clear after
-    // the position has been set
-    std::thread::sleep(std::time::Duration::from_millis(16));
-    g.queue_process("clear", []);
-    g.queue_process("cmd", []);
-    while let Some((name, args)) = g.get_queued_process() {
-        let res = g.start_exe_from_path(&name, args).map_err(|e| match e {
-            FsError::NotExecutable => {
-                std::io::Error::other("Tried to run process that does not exist")
-            }
-            e => std::io::Error::other(format!("Unknown error: {e:?}")),
-        });
-
-        if let Err(e) = res {
-            log!("Error in terminal0: {e:?}");
-        }
-    }
-
-    Ok(GExitCode::Success)
 }
 
 fn centered_rect(area: Rect, width: u16, height: u16) -> Rect {
@@ -118,8 +94,8 @@ fn main() -> Result<ExitCode> {
         };
 
         match message.terminal_type {
-            ipc::TerminalType::OS => terminal0(connection),
-            ipc::TerminalType::Pinpad => terminal1(connection),
+            ipc::TerminalType::OS => os_terminal(connection),
+            ipc::TerminalType::Pinpad => pinpad_terminal(connection),
         }
     }
 

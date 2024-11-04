@@ -8,7 +8,7 @@ use super::fs::{Dir, File, Node, NodeContent, NodeDateTime, Path, Root};
 use super::subprocess::SubprocessFn;
 
 #[repr(u32)]
-#[derive(Reflect, Debug, Clone, Copy)]
+#[derive(Reflect, Debug, Clone, Copy, PartialEq, PartialOrd)]
 pub enum ComputerId {
     First = 0,
     Second = 1,
